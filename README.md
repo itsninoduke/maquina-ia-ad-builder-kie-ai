@@ -1,5 +1,7 @@
 # KIE.ai Video + Image — Agent Skill Pack
 
+<sub>Parte del ecosistema **[MÁQUINA IA](https://www.skool.com/maquinadeleads/about)** · la comunidad LATAM donde dueños de negocio automatizan su operación con Claude</sub>
+
 Create AI marketing videos and images using your [KIE.ai](https://kie.ai) account, powered by AI agents in **Claude Code** or **Cursor**. Supports the full KIE creative stack — **Seedance 2.0** (flagship video, plus Fast and 1.5 Pro variants), **Sora 2** + **Sora 2 Pro**, **Veo 3.1** (with all three generation modes), **Kling 3.0**, **Nano Banana 2 / Pro / Edit**, and **ChatGPT Image 2** via KIE's dedicated `/gpt4o-image` endpoint — plus a 37-template static Meta image-ad library and pipelines for **Pixar-style** and **claymation** animated ads.
 
 **Key KIE characteristics to know upfront:**
@@ -381,6 +383,21 @@ This repo updates regularly — new templates land in the prompt library, new wo
 - **Model marketplace:** [kie.ai/market](https://kie.ai/market) — verify current `model` strings
 - **Pricing:** [kie.ai/pricing](https://kie.ai/pricing)
 - **Task logs UI:** [kie.ai/logs](https://kie.ai/logs) — server-side task history, status, credit consumption
+
+## Comunidad · MÁQUINA IA 🚀
+
+Este repo es una pieza del **Sistema 1 — el Marketero IA**: la parte que produce el creativo. El resto del sistema (cómo lo distribuís, cómo capturás el lead y cómo lo cerrás) vive en la comunidad.
+
+**[skool.com/maquinadeleads](https://www.skool.com/maquinadeleads/about)** — en español, para LATAM:
+
+- **Q&A en vivo cada semana** — te ayudamos con tu caso, en pantalla compartida
+- **Bases de Claude** — desde cero, si nunca usaste IA
+- **Los 5 Sistemas** — Marketero · Setter · Closer · Analista · Asistente, con sus bots y workflows ya armados
+- **Snapshots de GHL y templates de n8n / Make** — importables, listos para producción
+- **Facebook Ads Mastery · Video Editing Mastery · Planes de contenido** — qué hacer con el creativo una vez que lo generaste
+- **El Drop del Mes** — un recurso nuevo cada mes, más una masterclass mensual
+
+Si te trabás con este repo, ahí es donde se resuelve.
 
 ## Other AI assistants (Manus, Copilot, etc.)
 
