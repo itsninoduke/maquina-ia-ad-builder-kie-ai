@@ -1,388 +1,390 @@
-# KIE.ai Video + Image — Agent Skill Pack
+# KIE.ai Video + Imagen — Pack de Skills para Agentes
 
 <sub>Parte del ecosistema **[MÁQUINA IA](https://www.skool.com/maquinadeleads/about)** · la comunidad LATAM donde dueños de negocio automatizan su operación con Claude</sub>
 
-Create AI marketing videos and images using your [KIE.ai](https://kie.ai) account, powered by AI agents in **Claude Code** or **Cursor**. Supports the full KIE creative stack — **Seedance 2.0** (flagship video, plus Fast and 1.5 Pro variants), **Sora 2** + **Sora 2 Pro**, **Veo 3.1** (with all three generation modes), **Kling 3.0**, **Nano Banana 2 / Pro / Edit**, and **ChatGPT Image 2** via KIE's dedicated `/gpt4o-image` endpoint — plus a 37-template static Meta image-ad library and pipelines for **Pixar-style** and **claymation** animated ads.
+<sub>🇺🇸 [English version](README.en.md)</sub>
 
-**Key KIE characteristics to know upfront:**
-- **Async by design.** Every generation call returns a `taskId`; results arrive via polling (`record-info` endpoints) or webhooks (`callBackUrl`).
-- **URL-only references.** KIE has no presigned-upload flow — reference images must be publicly reachable URLs (your bucket, CDN, image host).
-- **Marketplace catalogue evolves.** Model strings change as KIE adds/renames models. Verify on [kie.ai/market](https://kie.ai/market) on first use; the agent records confirmed strings in `MASTER_CONTEXT.md`.
+Creá videos e imágenes publicitarias con IA usando tu cuenta de [KIE.ai](https://kie.ai), manejada por agentes en **Claude Code** o **Cursor**. Soporta todo el stack creativo de KIE — **Seedance 2.0** (el modelo estrella de video, más las variantes Fast y 1.5 Pro), **Sora 2** + **Sora 2 Pro**, **Veo 3.1** (con sus tres modos de generación), **Kling 3.0**, **Nano Banana 2 / Pro / Edit**, y **ChatGPT Image 2** vía el endpoint dedicado `/gpt4o-image` de KIE — más una librería de 37 plantillas de anuncios estáticos para Meta y pipelines para anuncios animados **estilo Pixar** y **claymation**.
 
-## Prerequisites
+**Tres cosas de KIE que conviene saber desde el arranque:**
+- **Todo es asíncrono.** Cada llamada de generación devuelve un `taskId`; los resultados llegan por polling (endpoints `record-info`) o por webhook (`callBackUrl`).
+- **Las referencias son solo por URL.** KIE no tiene subida de archivos — las imágenes de referencia tienen que estar en URLs públicas y alcanzables (tu bucket, CDN o servicio de hosting).
+- **El catálogo cambia.** Los nombres de los modelos cambian a medida que KIE agrega o renombra. Verificá en [kie.ai/market](https://kie.ai/market) la primera vez; el agente guarda los nombres confirmados en `MASTER_CONTEXT.md`.
 
-The agent and the basic KIE workflows (image generation, video generation, polling) work with just **Python 3.10+** and the API key from setup. Some multi-step pipelines need a few extra CLI tools:
+## Requisitos
 
-| Tool | Required for | Install (macOS) |
+El agente y los flujos básicos de KIE (generar imágenes, generar videos, polling) funcionan solo con **Python 3.10+** y la API key del setup. Algunos pipelines de varios pasos necesitan herramientas extra:
+
+| Herramienta | Necesaria para | Instalación (macOS) |
 |---|---|---|
-| **Python 3.10+** | Everything (the image-ad generators are stdlib-only — no pip install) | preinstalled or `brew install python@3.12` |
-| **`ffmpeg`** | Pixar-style ad, claymation ad, caption-video (stitching + chroma-key overlay) | `brew install ffmpeg` |
-| **`jq`** | Several bash scripts (pixar-style-ad, etc.) | `brew install jq` |
-| **Node.js + `npx hyperframes`** | Caption burn-in workflow | `brew install node` (the skill runs `npx` on demand) |
-| **`whisper`** Python package | Caption transcription | `pip install openai-whisper` (or `pip3`) |
-| **`meta-ad-builder` deps** | Publishing to Meta Marketing API | `pip install -r shared/skills/meta-ad-builder/scripts/requirements.txt` |
-| **Image hosting** | KIE reference images need public URLs (no presigned upload on KIE) | Your own R2 / S3 / Cloudinary, or a temp host like `0x0.st` or imgur |
+| **Python 3.10+** | Todo (los generadores de anuncios usan solo la librería estándar — no hace falta pip install) | ya viene instalado, o `brew install python@3.12` |
+| **`ffmpeg`** | Anuncio estilo Pixar, claymation, subtítulos quemados (unir clips + overlay con chroma) | `brew install ffmpeg` |
+| **`jq`** | Varios scripts de bash (pixar-style-ad, etc.) | `brew install jq` |
+| **Node.js + `npx hyperframes`** | Flujo de subtítulos quemados | `brew install node` (la skill corre `npx` cuando lo necesita) |
+| **Paquete `whisper` de Python** | Transcripción para subtítulos | `pip install openai-whisper` (o `pip3`) |
+| **Dependencias de `meta-ad-builder`** | Publicar en la Meta Marketing API | `pip install -r shared/skills/meta-ad-builder/scripts/requirements.txt` |
+| **Hosting de imágenes** | Las referencias de KIE necesitan URLs públicas (KIE no permite subir archivos) | Tu propio R2 / S3 / Cloudinary, o un host temporal como `0x0.st` o imgur |
 
-The image-ad generator scripts (`chatgpt-image-ad`, `nano-banana-image-ad`, `image-ad-clone`) are intentionally stdlib-only — no extra installs needed. The deps above are only required when you invoke the matching multi-step workflow.
+Los scripts generadores de anuncios (`chatgpt-image-ad`, `nano-banana-image-ad`, `image-ad-clone`) usan a propósito solo la librería estándar — no requieren instalar nada. Las dependencias de arriba solo hacen falta cuando invocás el flujo correspondiente.
 
-Linux users: `apt install ffmpeg jq nodejs python3`. Windows users: WSL2 recommended; the shell scripts assume bash.
+En Linux: `apt install ffmpeg jq nodejs python3`. En Windows: se recomienda WSL2; los scripts asumen bash.
 
-## Get started (5 minutes)
+## Arrancá en 5 minutos
 
-### 1. Clone this repo
+### 1. Cloná el repo
 
 ```bash
 git clone https://github.com/itsninoduke/maquina-ia-ad-builder-kie-ai.git
 cd maquina-ia-ad-builder-kie-ai
 ```
 
-### 2. Run setup
+### 2. Corré el setup
 
 ```bash
 ./scripts/setup.sh
 ```
 
-This will:
-- Ask for your **KIE API key** (find it at [kie.ai/api-key](https://kie.ai/api-key))
-- Save it securely in `.env` (never committed to git)
-- Verify your connection to KIE
-- Create your personal `MASTER_CONTEXT.md` workspace file
-- Sync skills to `.claude/skills/` and `.cursor/skills/`
+Esto va a:
+- Pedirte tu **API key de KIE** (la encontrás en [kie.ai/api-key](https://kie.ai/api-key))
+- Guardarla de forma segura en `.env` (nunca se sube a git)
+- Verificar tu conexión con KIE
+- Crear tu archivo personal `MASTER_CONTEXT.md`
+- Sincronizar las skills a `.claude/skills/` y `.cursor/skills/`
 
-### 3. Open in your AI editor
+### 3. Abrilo en tu editor con IA
 
-**Claude Code:** Open the folder. A `SessionStart` hook runs and prints an orientation banner showing which skills are installed, whether your `.env` and `MASTER_CONTEXT.md` are set up, and where the docs live.
+**Claude Code:** abrí la carpeta. Un hook de `SessionStart` imprime un banner de orientación con las skills instaladas, si tu `.env` y tu `MASTER_CONTEXT.md` están listos, y dónde está la documentación.
 
-**Cursor:** Open the folder. Skills are exposed at `.cursor/skills/`.
+**Cursor:** abrí la carpeta. Las skills quedan expuestas en `.cursor/skills/`.
 
-### 4. Start creating
+### 4. Empezá a crear
 
-The agent handles API calls, async polling, prompt engineering, file organization, and cost confirmation. Workflows are grouped by what you want to make.
-
----
-
-### 🎬 Seedance 2.0 videos (the flagship — start here)
-
-Seedance 2.0 is the most flexible video model — 4–15s clips, native audio, image-to-video or video-to-video, reference images, multiple shot styles. Five prompt formulas ship with the skill, each tuned for a different ad shape:
-
-#### UGC selfie-style product review
-
-> "Make a 12-second Seedance UGC video — woman in a kitchen, holding the product, says she stopped buying [competitor]"
-
-The 9-layer UGC formula tuned for Seedance 2.0 (iPhone-shot aesthetic, natural eye-contact breaks, casual delivery). See `skills/kie-external-api/prompting/prompt-library/seedance-2-ugc.md`.
-
-#### Premium product reveal (no person)
-
-> "Premium reveal of [product] — dark void, text narrative, hero rotation"
-
-Dark-void aesthetic, text overlays narrating positioning, no person on screen. See `skills/kie-external-api/prompting/prompt-library/seedance-2-premium-reveal.md`.
-
-#### Product hero with elemental effects
-
-> "Seedance product hero — water splash, mist, slow rotation"
-
-Splash, mist, light rays, slow rotation. See `skills/kie-external-api/prompting/prompt-library/seedance-2-product-hero.md`.
-
-#### Studio lookbook with voiceover
-
-> "Studio lookbook of [product] — multi-look, polished, with voiceover script"
-
-Polished editorial / lookbook style, multi-shot, with embedded dialogue. See `skills/kie-external-api/prompting/prompt-library/seedance-2-studio-lookbook.md`.
-
-#### Feature walkthrough demo
-
-> "Seedance feature walkthrough — fast-paced, show off [features]"
-
-Fast-paced product-demo cuts. See `skills/kie-external-api/prompting/prompt-library/seedance-2-feature-walkthrough.md`.
-
-**Seedance variants on KIE:** `bytedance/seedance-2` (flagship), `bytedance/seedance-2-fast` (cheaper / faster), `bytedance/seedance-1.5-pro` (legacy). Always verify current strings on the marketplace.
+El agente se encarga de las llamadas a la API, el polling asíncrono, la ingeniería de prompts, la organización de archivos y la confirmación de costos. Los flujos están agrupados por lo que querés producir.
 
 ---
 
-### 🎬 Other video models
+### 🎬 Videos con Seedance 2.0 (el modelo estrella — empezá acá)
 
-#### Veo 3.1 — three generation modes
+Seedance 2.0 es el modelo de video más flexible — clips de 4 a 15 segundos, audio nativo, imagen-a-video o video-a-video, imágenes de referencia y varios estilos de toma. La skill trae cinco fórmulas de prompt, cada una afinada para un formato de anuncio distinto:
 
-> "Animate this Nano Banana still into a Veo video with dialogue" (REFERENCE_2_VIDEO)
-> "Transition from this still to this still" (FIRST_AND_LAST_FRAMES_2_VIDEO)
-> "Generate a pure Veo video of [scene]" (TEXT_2_VIDEO)
+#### Reseña de producto estilo selfie UGC
 
-Veo 3.1 supports three mutually exclusive `generationType` modes:
+> "Hacé un video UGC de 12 segundos con Seedance — una mujer en la cocina sosteniendo el producto, dice que dejó de comprar [competidor]"
 
-- **`TEXT_2_VIDEO`** — pure prompt, no image anchor
-- **`FIRST_AND_LAST_FRAMES_2_VIDEO`** — 2 URLs in `imageUrls` (start + end), Veo transitions between them
-- **`REFERENCE_2_VIDEO`** — 1 URL in `imageUrls`, video unfolds from a single reference. **`REFERENCE_2_VIDEO` only supports `veo3_fast`.**
+La fórmula UGC de 9 capas afinada para Seedance 2.0 (estética de iPhone, cortes naturales de contacto visual, tono casual). Ver `skills/kie-external-api/prompting/prompt-library/seedance-2-ugc.md`.
 
-Model strings: `veo3_fast` (default), `veo3`, `veo3_lite`. Endpoint: `POST /api/v1/veo/generate`. The agent confirms dialogue separately before generating (the MANDATORY dialogue gate).
+#### Revelación premium del producto (sin persona)
 
-#### Sora 2 (text-to-video, up to 20s)
+> "Revelación premium de [producto] — fondo negro, texto narrativo, rotación del producto"
 
-> "Generate a 16-second Sora video of [scene]"
+Estética de vacío oscuro, textos que narran el posicionamiento, sin ninguna persona en pantalla. Ver `skills/kie-external-api/prompting/prompt-library/seedance-2-premium-reveal.md`.
 
-Sora 2 handles longer durations than Veo. Duration enum: `[4, 8, 12, 16, 20]`. Auto-selected from script word count (~2.5 words/sec).
+#### Producto como héroe con efectos
 
-- **`sora-2-text-to-video`** — text-only
-- **`sora-2-pro-text-to-video`** — Pro tier, premium quality
-- **`sora-2-image-to-video`** — start from an image URL
+> "Producto héroe con Seedance — salpicadura de agua, neblina, rotación lenta"
 
-#### Kling 3.0 (b-roll / scene)
+Salpicaduras, neblina, rayos de luz, rotación lenta. Ver `skills/kie-external-api/prompting/prompt-library/seedance-2-product-hero.md`.
 
-> "Make a 5-second Kling b-roll clip of [scene]"
+#### Lookbook de estudio con voz en off
 
-Kling 3.0 for cinematic b-roll and scene generation. Confirm exact marketplace string for your account.
+> "Lookbook de estudio de [producto] — varios looks, pulido, con guion de voz en off"
 
----
+Estilo editorial pulido, varias tomas, con diálogo incorporado. Ver `skills/kie-external-api/prompting/prompt-library/seedance-2-studio-lookbook.md`.
 
-### 🖼️ Image generation (Nano Banana + ChatGPT Image 2)
+#### Demo de funcionalidades
 
-#### Create a new AI influencer (10-image character sheet)
+> "Recorrido de funcionalidades con Seedance — ritmo rápido, mostrá [funcionalidades]"
 
-> "Create a new AI influencer — 22-year-old college student with freckles, golden-hour kitchen lighting"
+Cortes rápidos de demo de producto. Ver `skills/kie-external-api/prompting/prompt-library/seedance-2-feature-walkthrough.md`.
 
-Two-pass workflow: (1) generate a hero front portrait via Nano Banana 2, get your approval, (2) generate 9 additional angles with the hero URL as the reference. All 10 saved to `references/influencers/` for future reuse.
-
-#### UGC product selfie still
-
-> "Generate a UGC selfie of Sofia holding [product] in her bedroom"
-
-Combines your character hero URL + product photo URL + style references from `references/aesthetics/ugc-selfie/` into an authentic-looking iPhone selfie frame grab via Nano Banana 2. Includes skin realism and camera imperfections to fight AI's polished default.
-
-#### Product showcase still → video
-
-> "AI person holding [product] talking about [feature]"
-
-Two-step: Nano Banana 2 with product reference URL → starting frame of the AI person with the product → user approves → starting-frame URL into Veo 3.1 `REFERENCE_2_VIDEO` or Sora 2 image-to-video.
-
-#### Recreate an influencer from a reference photo
-
-> "Recreate this influencer's look from this reference photo URL"
-
-Two-step: Nano Banana 2 generates a still from the reference URL → user approves → still URL → Veo 3.1 `REFERENCE_2_VIDEO`.
-
-#### Nano Banana model choice on KIE
-
-KIE exposes multiple Nano Banana variants — pick per workflow:
-
-- **`nano-banana-2`** (default) — current standard image model
-- **`nano-banana-pro`** — Gemini 3 Pro Image, premium quality, locks character identity tighter across batches
-- **`nano-banana-edit`** — inpaint / edit an existing image
-- **`nano-banana`** — original / legacy variant (rarely needed)
+**Variantes de Seedance en KIE:** `bytedance/seedance-2` (la principal), `bytedance/seedance-2-fast` (más barata / más rápida), `bytedance/seedance-1.5-pro` (legacy). Verificá siempre los nombres actuales en el marketplace.
 
 ---
 
-### 📸 Static Meta image ad creative (37-template library)
+### 🎬 Otros modelos de video
 
-> "Make me an Apple Notes-style ad for my product" / "Generate a Forbes editorial ad" / "Clone this comparison-table ad as a template"
+#### Veo 3.1 — tres modos de generación
 
-A four-skill family for static Meta image ads with a shared library of **37 validated prompt templates** (Apple Notes lists, editorial hero, fake Google search, comparison tables, sticky-note flatlays, fake Slack threads, ChatGPT-conversation ads, iMessage screenshots, magazine cover, billboard, museum exhibit, weather forecast UI, scratch-off ticket, founder letter, dating-app card, more).
+> "Animá esta imagen de Nano Banana en un video de Veo con diálogo" (REFERENCE_2_VIDEO)
+> "Hacé la transición de esta imagen a esta otra" (FIRST_AND_LAST_FRAMES_2_VIDEO)
+> "Generá un video de Veo puro de [escena]" (TEXT_2_VIDEO)
 
-- **`chatgpt-image-ad`** — typography-heavy / UI-mimicry creatives. Hits KIE's **dedicated `/api/v1/gpt4o-image/generate` endpoint** (not `/jobs/createTask`). Sizes: `1:1`, `3:2`, `2:3`.
-- **`nano-banana-image-ad`** — photoreal / lifestyle / multi-reference creatives via `/jobs/createTask`. Full Meta ratio set including `4:5` (the native Meta feed-portrait ratio).
-- **`image-ad-clone`** — single backend-agnostic skill that reverse-engineers any existing ad URL into a new library entry (asks which generator to validate against at Phase 1; optionally cross-validates against the other at Phase 8).
+Veo 3.1 soporta tres modos de `generationType`, mutuamente excluyentes:
 
-Reference images are **public URLs** (KIE has no presigned upload). Output is image files; pair with the `meta-ad-builder` skill to publish as paused Meta ads. **Read `shared/skills/image-ad-prompting/OVERVIEW.md` first** — it has the decision tree, the aspect-ratio compatibility matrix per backend, and the standard generate / clone workflows. Live-validated end-to-end against the KIE API.
+- **`TEXT_2_VIDEO`** — solo prompt, sin imagen de anclaje
+- **`FIRST_AND_LAST_FRAMES_2_VIDEO`** — 2 URLs en `imageUrls` (inicio + fin), Veo hace la transición entre ambas
+- **`REFERENCE_2_VIDEO`** — 1 URL en `imageUrls`, el video se desarrolla desde una sola referencia. **`REFERENCE_2_VIDEO` solo funciona con `veo3_fast`.**
 
----
+Nombres de modelo: `veo3_fast` (por defecto), `veo3`, `veo3_lite`. Endpoint: `POST /api/v1/veo/generate`. El agente confirma el diálogo por separado antes de generar (el gate obligatorio de diálogo).
 
-### 🎞️ Multi-step animated ad pipelines
+#### Sora 2 (texto a video, hasta 20s)
 
-#### Pixar-style 3D animated ad
+> "Generá un video de Sora de 16 segundos de [escena]"
 
-> "Make a Pixar-style ad for [product] — anthropomorphized mascot, 8-beat story arc"
+Sora 2 maneja duraciones más largas que Veo. Duraciones válidas: `[4, 8, 12, 16, 20]`. Se elige automáticamente según la cantidad de palabras del guion (~2,5 palabras por segundo).
 
-Lock cast sheet → ChatGPT Image 2 storyboard stills (sequential, prior frame as reference for identity lock) → Seedance 2.0 image-to-video per beat (`bytedance/seedance-2`) → ffmpeg stitch + burn captions. See `shared/skills/pixar-style-ad/prompting/guide.md`.
+- **`sora-2-text-to-video`** — solo texto
+- **`sora-2-pro-text-to-video`** — tier Pro, calidad premium
+- **`sora-2-image-to-video`** — arranca desde una URL de imagen
 
-#### Claymation / Aardman-style ad
+#### Kling 3.0 (b-roll / escenas)
 
-> "Make a claymation ad — sculpted plasticine characters, narrator-driven, 60–115s"
+> "Hacé un clip de b-roll de 5 segundos con Kling de [escena]"
 
-Same backbone as Pixar with an 8-beat narrator-driven story arc and clay textures. ChatGPT Image 2 storyboard (sequential for identity, parallel for beat 5 chart; falls back to `nano-banana-pro` for close-ups if clay texture flattens) → Seedance 2.0 i2v per beat → ffmpeg stitch with optional `fps=12,fps=24` stop-motion judder. VO is generated externally (ElevenLabs) and mixed in post. See `shared/skills/claymation-ad/prompting/guide.md`.
-
-#### YouTube thumbnails (5 CTR formulas)
-
-> "Generate 10 thumbnail variants for this video about prompt engineering"
-
-Specialized `generate-youtube-thumbnail` skill: peace-sign/branding, real-vs-AI comparison, terminal flow, reaction shock, before/after split. Likeness lockdown via 5+ face URLs. Parallel batch firing against Nano Banana 2. See `skills/generate-youtube-thumbnail/`.
-
-#### Burn captions onto a finished video
-
-> "Add captions to this MP4"
-
-Out-of-band post-step (no KIE call) that works on any source — Pixar, claymation, UGC, B-roll. HyperFrames + Whisper `medium.en` for transcription → group word-level transcript into reading phrases → render captions-only HTML over `#ff00ff` magenta → ffmpeg chroma-key overlay. See `shared/skills/caption-video/prompting/guide.md`.
+Kling 3.0 para b-roll cinematográfico y generación de escenas. Confirmá el nombre exacto del modelo en el marketplace de tu cuenta.
 
 ---
 
-### 🔄 Reverse-engineer existing creative
+### 🖼️ Generación de imágenes (Nano Banana + ChatGPT Image 2)
 
-#### Analyze a reference video into a Seedance template
+#### Crear un influencer IA nuevo (character sheet de 10 imágenes)
 
-> "Reverse-engineer this video URL into a reusable Seedance template"
+> "Creá un influencer IA nuevo — estudiante de 22 años con pecas, luz de cocina al atardecer"
 
-The `analyze-video` workflow under `skills/kie-external-api/prompting/analyze-video/` extracts the structure of a reference video into a parameterizable Seedance 2.0 prompt template.
+Flujo de dos pasadas: (1) genera un retrato frontal principal con Nano Banana 2 y te pide aprobación, (2) genera 9 ángulos más usando la URL del retrato como referencia. Las 10 quedan guardadas en `references/influencers/` para reutilizarlas.
 
-#### Clone an existing video ad for a different product
+#### Selfie UGC con producto
 
-> "Clone this video ad for our new product"
+> "Generá un selfie UGC de Sofía sosteniendo [producto] en su habitación"
 
-`skills/kie-external-api/prompting/clone-ad/` — end-to-end: analyze the reference → adapt to the new product → generate. The companion to `analyze-video` when you want to ship the cloned version directly.
+Combina la URL de tu personaje + la foto del producto + las referencias de estilo de `references/aesthetics/ugc-selfie/` en un frame de selfie de iPhone que parece real, vía Nano Banana 2. Incluye realismo de piel e imperfecciones de cámara para contrarrestar el acabado demasiado pulido de la IA.
 
-#### Clone a static image ad into the prompt library
+#### Imagen de producto → video
 
-> "Reverse-engineer this image ad URL as a reusable template"
+> "Persona IA sosteniendo [producto] hablando de [beneficio]"
 
-The `image-ad-clone` skill produces parameterizable entries for the 37-template library (see above).
+Dos pasos: Nano Banana 2 con la URL del producto → frame inicial de la persona IA con el producto → aprobás → esa URL entra a Veo 3.1 `REFERENCE_2_VIDEO` o a Sora 2 imagen-a-video.
+
+#### Recrear un influencer desde una foto de referencia
+
+> "Recreá el look de este influencer desde esta URL de referencia"
+
+Dos pasos: Nano Banana 2 genera una imagen desde la URL de referencia → aprobás → esa URL entra a Veo 3.1 `REFERENCE_2_VIDEO`.
+
+#### Qué variante de Nano Banana usar en KIE
+
+KIE expone varias variantes de Nano Banana — elegí según el flujo:
+
+- **`nano-banana-2`** (por defecto) — el modelo de imagen estándar actual
+- **`nano-banana-pro`** — Gemini 3 Pro Image, calidad premium, mantiene la identidad del personaje más firme entre lotes
+- **`nano-banana-edit`** — retocar / editar una imagen existente
+- **`nano-banana`** — variante original / legacy (rara vez hace falta)
 
 ---
 
-### 📤 Publish creatives as paused Meta ads
+### 📸 Anuncios estáticos para Meta (librería de 37 plantillas)
 
-> "Publish this approved creative as a paused Meta ad in my account"
+> "Hacéme un anuncio estilo Apple Notes para mi producto" / "Generá un anuncio editorial estilo Forbes" / "Cloná este anuncio de tabla comparativa como plantilla"
 
-The cross-API `meta-ad-builder` skill (in `shared/skills/`) takes a finished creative path and uploads it via the Meta Marketing API. Every ad is created PAUSED — you review and launch manually in Ads Manager. Also has a research path to pull top-spending ads and competitor ads. Auth via `META_*` keys in `.env`.
+Una familia de cuatro skills para anuncios estáticos de Meta con una librería compartida de **37 plantillas de prompt validadas** (listas estilo Apple Notes, editorial, búsqueda falsa de Google, tablas comparativas, flatlays de notas adhesivas, hilos falsos de Slack, anuncios con formato de conversación de ChatGPT, capturas de iMessage, tapa de revista, cartel de vía pública, exhibición de museo, interfaz de pronóstico del clima, raspadita, carta del fundador, tarjeta de app de citas, y más).
 
-## What's in the box
+- **`chatgpt-image-ad`** — creativos cargados de tipografía / imitación de interfaces. Usa el **endpoint dedicado `/api/v1/gpt4o-image/generate`** (no `/jobs/createTask`). Tamaños: `1:1`, `3:2`, `2:3`.
+- **`nano-banana-image-ad`** — creativos fotorrealistas / lifestyle / con múltiples referencias, vía `/jobs/createTask`. Todos los ratios de Meta, incluido `4:5` (el vertical nativo del feed).
+- **`image-ad-clone`** — una sola skill agnóstica del backend que hace ingeniería inversa de cualquier URL de anuncio existente y la convierte en una entrada nueva de la librería (te pregunta con qué generador validar en la Fase 1; opcionalmente valida contra el otro en la Fase 8).
 
-| Path | What it does |
+Las imágenes de referencia van por **URL pública** (KIE no permite subir archivos). La salida son archivos de imagen; combinalo con la skill `meta-ad-builder` para publicarlos como anuncios pausados en Meta. **Leé primero `shared/skills/image-ad-prompting/OVERVIEW.md`** — ahí está el árbol de decisión, la matriz de compatibilidad de ratios por backend y los flujos estándar de generar / clonar. Validado en vivo de punta a punta contra la API de KIE.
+
+---
+
+### 🎞️ Pipelines de anuncios animados (varios pasos)
+
+#### Anuncio 3D estilo Pixar
+
+> "Hacé un anuncio estilo Pixar para [producto] — mascota antropomorfizada, arco narrativo de 8 beats"
+
+Fijar el cast → imágenes de storyboard con ChatGPT Image 2 (secuenciales, cada frame usa el anterior como referencia para mantener la identidad) → Seedance 2.0 imagen-a-video por beat (`bytedance/seedance-2`) → unir con ffmpeg + quemar subtítulos. Ver `shared/skills/pixar-style-ad/prompting/guide.md`.
+
+#### Anuncio claymation / estilo Aardman
+
+> "Hacé un anuncio claymation — personajes de plastilina, narrado, de 60 a 115 segundos"
+
+La misma columna vertebral que Pixar, con un arco narrado de 8 beats y texturas de plastilina. Storyboard con ChatGPT Image 2 (secuencial para la identidad, en paralelo para el gráfico del beat 5; si la textura de plastilina se aplana en los primeros planos, cae a `nano-banana-pro`) → Seedance 2.0 i2v por beat → unir con ffmpeg y la opción de trepidación stop-motion `fps=12,fps=24`. La voz en off se genera aparte (ElevenLabs) y se mezcla en la post. Ver `shared/skills/claymation-ad/prompting/guide.md`.
+
+#### Miniaturas de YouTube (5 fórmulas de CTR)
+
+> "Generá 10 variantes de miniatura para este video sobre ingeniería de prompts"
+
+La skill `generate-youtube-thumbnail`: seña de paz/branding, comparación real vs IA, flujo de terminal, cara de sorpresa, split de antes/después. La identidad facial se fija con 5 o más URLs de referencia. Dispara el lote en paralelo contra Nano Banana 2. Ver `skills/generate-youtube-thumbnail/`.
+
+#### Quemar subtítulos en un video terminado
+
+> "Ponele subtítulos a este MP4"
+
+Paso posterior que no usa KIE y funciona sobre cualquier fuente — Pixar, claymation, UGC o b-roll. HyperFrames + Whisper `medium.en` para transcribir → agrupa la transcripción palabra por palabra en frases legibles → renderiza solo los subtítulos en HTML sobre magenta `#ff00ff` → overlay con chroma-key de ffmpeg. Ver `shared/skills/caption-video/prompting/guide.md`.
+
+---
+
+### 🔄 Ingeniería inversa de creativos existentes
+
+#### Analizar un video de referencia y convertirlo en plantilla de Seedance
+
+> "Hacé ingeniería inversa de esta URL de video y convertila en una plantilla reusable de Seedance"
+
+El flujo `analyze-video` en `skills/kie-external-api/prompting/analyze-video/` extrae la estructura de un video de referencia y la convierte en una plantilla de prompt parametrizable para Seedance 2.0.
+
+#### Clonar un anuncio de video para otro producto
+
+> "Cloná este anuncio de video para nuestro producto nuevo"
+
+`skills/kie-external-api/prompting/clone-ad/` — de punta a punta: analiza la referencia → la adapta al producto nuevo → genera. El complemento de `analyze-video` cuando querés publicar la versión clonada directamente.
+
+#### Clonar un anuncio estático hacia la librería de prompts
+
+> "Hacé ingeniería inversa de esta URL de anuncio como plantilla reusable"
+
+La skill `image-ad-clone` produce entradas parametrizables para la librería de 37 plantillas (ver arriba).
+
+---
+
+### 📤 Publicar creativos como anuncios pausados en Meta
+
+> "Publicá este creativo aprobado como anuncio pausado en mi cuenta"
+
+La skill `meta-ad-builder` (en `shared/skills/`) toma la ruta de un creativo terminado y lo sube por la Meta Marketing API. Todos los anuncios se crean PAUSADOS — vos los revisás y los activás a mano en el Administrador de Anuncios. También tiene un camino de investigación para traer los anuncios de mayor inversión y los de la competencia. La autenticación va con las claves `META_*` en `.env`.
+
+## Qué trae el pack
+
+| Ruta | Qué hace |
 |------|-------------|
-| `skills/kie-external-api/` | **The core skill.** API reference, prompting guide, per-model prompt libraries (Seedance / Sora / Veo / Kling / Nano Banana), analyze-video + clone-ad sub-workflows. |
-| `skills/generate-youtube-thumbnail/` | 5 CTR-tested YouTube thumbnail formulas with parallel batch firing against Nano Banana 2. |
-| `skills/chatgpt-image-ad/` | Static Meta image-ad creatives via `/api/v1/gpt4o-image/generate` (typography / UI mimicry). Live-validated. |
-| `skills/nano-banana-image-ad/` | Static Meta image-ad creatives via Nano Banana 2 / Pro / Edit (photoreal / lifestyle). Live-validated. |
-| `skills/image-ad-clone/` | Reverse-engineer an existing ad URL into a reusable library entry. Backend-agnostic — asks at Phase 1 whether to validate via gpt-image-2 (via `/gpt4o-image`) or Nano Banana, optionally cross-validates against the other at Phase 8. |
-| `shared/skills/image-ad-prompting/` | Shared brain for the image-ad ecosystem: 37 validated templates, safety suffixes, entry format, `OVERVIEW.md`. |
-| `shared/skills/pixar-style-ad/` | Cross-API recipe: 8-beat anthropomorphized mascot ad via GPT Image 2 storyboard + Seedance 2.0 i2v. |
-| `shared/skills/claymation-ad/` | Cross-API recipe: Aardman-style 8-beat clay narrative ad; same backbone as Pixar with stop-motion judder option. |
-| `shared/skills/caption-video/` | Out-of-band post step: HyperFrames + Whisper + ffmpeg chroma-key to burn captions onto any finished MP4. |
-| `shared/skills/meta-ad-builder/` | Publish finished creatives as paused Meta ads via the Meta Marketing API. |
-| `shared/scripts/check-context.sh` | SessionStart banner — lists installed skills, checks `.env` / `MASTER_CONTEXT.md` status, surfaces ecosystem pointers. Hooked into `.claude/settings.json`. |
-| `MASTER_CONTEXT.template.md` | Template for your workspace context (credit costs, brand voice, image hosting, learnings). |
-| `MASTER_CONTEXT.md` | Your personalized copy (created by setup, not committed to git). |
-| `.env` | Your API key (created by setup, never committed). |
-| `scripts/setup.sh` | One-time setup. |
-| `scripts/sync-skill.sh` | Copies skill edits to `.claude/` and `.cursor/` directories. |
-| `scripts/check-kie-env.sh` | Tests API connectivity. |
-| `logs/kie-api.jsonl` | Append-only log of every generation call — model, duration, reference counts, taskId, status, credits charged. Powers cost estimates. See `logs/README.md`. **Committed** (historical cost data is valuable; no keys or full prompts logged.) |
-| `references/` | Drop reference images here (influencers, products, aesthetics) — gitignored. |
-| `outputs/` | Per-session download folders (`outputs/{YYYY-MM-DD}-{slug}/`) — gitignored. |
+| `skills/kie-external-api/` | **La skill principal.** Referencia de la API, guía de prompting, librerías de prompts por modelo (Seedance / Sora / Veo / Kling / Nano Banana) y los sub-flujos analyze-video y clone-ad. |
+| `skills/generate-youtube-thumbnail/` | 5 fórmulas de miniatura de YouTube probadas por CTR, con disparo de lotes en paralelo contra Nano Banana 2. |
+| `skills/chatgpt-image-ad/` | Anuncios estáticos de Meta vía `/api/v1/gpt4o-image/generate` (tipografía / imitación de interfaces). Validado en vivo. |
+| `skills/nano-banana-image-ad/` | Anuncios estáticos de Meta vía Nano Banana 2 / Pro / Edit (fotorrealista / lifestyle). Validado en vivo. |
+| `skills/image-ad-clone/` | Ingeniería inversa de una URL de anuncio existente hacia una entrada reusable de la librería. Agnóstico del backend — pregunta en la Fase 1 si validar con gpt-image-2 (vía `/gpt4o-image`) o con Nano Banana, y opcionalmente valida contra el otro en la Fase 8. |
+| `shared/skills/image-ad-prompting/` | El cerebro compartido del ecosistema de anuncios: 37 plantillas validadas, sufijos de seguridad, formato de entrada y `OVERVIEW.md`. |
+| `shared/skills/pixar-style-ad/` | Receta cruzada: anuncio de 8 beats con mascota antropomorfizada, storyboard con GPT Image 2 + Seedance 2.0 i2v. |
+| `shared/skills/claymation-ad/` | Receta cruzada: anuncio narrado de 8 beats estilo Aardman; misma base que Pixar con opción de trepidación stop-motion. |
+| `shared/skills/caption-video/` | Paso posterior: HyperFrames + Whisper + chroma-key de ffmpeg para quemar subtítulos en cualquier MP4 terminado. |
+| `shared/skills/meta-ad-builder/` | Publica creativos terminados como anuncios pausados vía la Meta Marketing API. |
+| `shared/scripts/check-context.sh` | Banner de `SessionStart` — lista las skills instaladas, chequea el estado de `.env` y `MASTER_CONTEXT.md`, y muestra los punteros del ecosistema. Está enganchado en `.claude/settings.json`. |
+| `MASTER_CONTEXT.template.md` | Plantilla del contexto de tu espacio de trabajo (costos en créditos, voz de marca, hosting de imágenes, aprendizajes). |
+| `MASTER_CONTEXT.md` | Tu copia personalizada (la crea el setup, no se sube a git). |
+| `.env` | Tu API key (la crea el setup, nunca se sube). |
+| `scripts/setup.sh` | Configuración inicial, una sola vez. |
+| `scripts/sync-skill.sh` | Copia los cambios de las skills a `.claude/` y `.cursor/`. |
+| `scripts/check-kie-env.sh` | Prueba la conectividad con la API. |
+| `logs/kie-api.jsonl` | Log de solo-agregado de cada llamada de generación — modelo, duración, cantidad de referencias, taskId, estado y créditos cobrados. Es lo que alimenta las estimaciones de costo. Ver `logs/README.md`. **Se sube a git** (el historial de costos vale la pena; no se loguean claves ni prompts completos). |
+| `references/` | Dejá acá tus imágenes de referencia (influencers, productos, estéticas) — está en gitignore. |
+| `outputs/` | Carpetas de descarga por sesión (`outputs/{AAAA-MM-DD}-{slug}/`) — está en gitignore. |
 
-## Your API key
+## Tu API key
 
-Your key authenticates with the KIE API. During setup you paste it once and the agent uses it from `.env` automatically. You never need to paste it into chat.
+Tu key te autentica contra la API de KIE. Durante el setup la pegás una sola vez y el agente la usa desde `.env` automáticamente. Nunca hace falta que la pegues en el chat.
 
-Need a KIE.ai account first? Create one here: **https://kie.ai**
+¿Todavía no tenés cuenta de KIE.ai? Creala acá: **https://kie.ai**
 
-Find your key: **[KIE Dashboard → API Key](https://kie.ai/api-key)**
+Dónde está tu key: **[Dashboard de KIE → API Key](https://kie.ai/api-key)**
 
-For Meta-ad publishing (the `meta-ad-builder` skill), you'll also need `META_ACCESS_TOKEN` and `META_AD_ACCOUNT_ID` in `.env` — the `.env.example` has placeholder rows.
+Para publicar en Meta (la skill `meta-ad-builder`) también vas a necesitar `META_ACCESS_TOKEN` y `META_AD_ACCOUNT_ID` en `.env` — el archivo `.env.example` ya tiene las filas de ejemplo.
 
-## Reference images must be hosted
+## Las imágenes de referencia tienen que estar hosteadas
 
-KIE accepts reference images as **publicly reachable URLs** (`imageUrls` for Veo, `input.image_input` for marketplace models, `filesUrl` for `/gpt4o-image`). There is **no presigned-upload flow**. Plan your hosting strategy up front and record it in `MASTER_CONTEXT.md` under *Image hosting*:
+KIE acepta las referencias como **URLs públicas y alcanzables** (`imageUrls` para Veo, `input.image_input` para los modelos del marketplace, `filesUrl` para `/gpt4o-image`). **No hay subida de archivos.** Definí tu estrategia de hosting desde el arranque y anotala en `MASTER_CONTEXT.md`, en la sección *Image hosting*:
 
-- Your own R2 / S3 / Cloudinary bucket
-- A temp host like `0x0.st` or imgur
-- Anything that returns a public URL the KIE backend can fetch
+- Tu propio bucket de R2 / S3 / Cloudinary
+- Un host temporal como `0x0.st` o imgur
+- Cualquier cosa que devuelva una URL pública que el backend de KIE pueda descargar
 
-The agent will **stop and ask** how to host a file if you pass a local path and no hosting is configured. The new image-ad scripts also HEAD-probe each URL before submitting (pass `--skip-url-check` if your host blocks HEAD).
+Si le pasás una ruta local y no hay hosting configurado, el agente **se detiene y te pregunta** cómo hostear el archivo. Los scripts de anuncios además hacen un HEAD a cada URL antes de enviarla (pasá `--skip-url-check` si tu host bloquea HEAD).
 
-## Async pattern and webhooks
+## Patrón asíncrono y webhooks
 
-Every KIE generation call is async. Two ways to get results:
+Toda generación en KIE es asíncrona. Hay dos formas de obtener el resultado:
 
-- **Polling (default)** — agent polls the matching `record-info` endpoint every ~30 seconds:
+- **Polling (por defecto)** — el agente consulta el endpoint `record-info` correspondiente cada ~30 segundos:
   - Veo: `GET /api/v1/veo/record-info?taskId=…` (`successFlag` 0/1/2)
   - ChatGPT Image 2: `GET /api/v1/gpt4o-image/record-info?taskId=…` (`successFlag` 0/1/2)
   - Jobs (Sora / Kling / Nano Banana / Seedance / etc.): `GET /api/v1/jobs/recordInfo?taskId=…` (`state` waiting/queuing/generating/success/fail)
-- **Webhook** — pass `callBackUrl` in the request body; KIE POSTs the final payload when done. Use for production / long-running jobs if you have an endpoint up.
+- **Webhook** — pasá `callBackUrl` en el cuerpo del request y KIE te hace un POST con el resultado final. Usalo en producción o para trabajos largos, si tenés un endpoint levantado.
 
-Typical durations: Veo ~2–5 min, Sora 2 ~2–5 min, Seedance 2 ~3–4 min, Nano Banana / ChatGPT Image ~20–60 sec. KIE rate-limits at 20 req per 10s with up to 100 concurrent tasks — back off with jitter on 429.
+Duraciones típicas: Veo ~2–5 min, Sora 2 ~2–5 min, Seedance 2 ~3–4 min, Nano Banana / ChatGPT Image ~20–60 seg. KIE limita a 20 requests cada 10 segundos, con hasta 100 tareas concurrentes — ante un 429, esperá con jitter.
 
-## Project memory
+## Memoria del proyecto
 
-`MASTER_CONTEXT.md` is your workspace's living memory. The agent reads it at the start of every session and writes learnings back. It stores:
+`MASTER_CONTEXT.md` es la memoria viva de tu espacio de trabajo. El agente lo lee al inicio de cada sesión y escribe ahí lo que va aprendiendo. Guarda:
 
-- **Image hosting** — how you convert `references/` files to public URLs (write this once and the agent stops asking)
-- **Credit costs** — per-model rates, filled in once
-- **Confirmed model strings** — the exact `model` values the KIE marketplace exposes to your account (the marketplace catalogue evolves)
-- **Default model variant** — e.g. Nano Banana 2 vs Pro for image generation
-- **Brand voice** — optional tone, audience, and word preferences
-- **API learnings** — universal KIE quirks that help the agent work better
-- **Changelog** — dated notes from each session
+- **Hosting de imágenes** — cómo convertís los archivos de `references/` en URLs públicas (escribilo una vez y el agente deja de preguntar)
+- **Costos en créditos** — las tarifas por modelo, cargadas una sola vez
+- **Nombres de modelo confirmados** — los valores exactos de `model` que el marketplace de KIE expone en tu cuenta (el catálogo cambia)
+- **Variante por defecto** — por ejemplo, Nano Banana 2 vs Pro para generar imágenes
+- **Voz de marca** — opcional: tono, audiencia y preferencias de vocabulario
+- **Aprendizajes de la API** — las mañas de KIE que le sirven al agente para trabajar mejor
+- **Changelog** — notas fechadas de cada sesión
 
-## Supported models
+## Modelos soportados
 
-| Model | Type | `model` string | Best for | Notes |
+| Modelo | Tipo | String de `model` | Ideal para | Notas |
 |-------|------|----------------|----------|-------|
-| **Seedance 2.0** | Video (4–15s) | `bytedance/seedance-2` | Flagship video. UGC, premium reveal, product hero, lookbook, feature walkthrough. Native audio. | 5 prompt formulas ship. Endpoint: `POST /api/v1/jobs/createTask`. |
-| **Seedance 2.0 Fast** | Video | `bytedance/seedance-2-fast` | Cheaper / faster Seedance for iteration. | Same endpoint. |
-| **Seedance 1.5 Pro** | Video | `bytedance/seedance-1.5-pro` | Legacy Seedance Pro. | Same endpoint. |
-| **Veo 3.1** | Video (~8s) | `veo3_fast` (default), `veo3`, `veo3_lite` | Animating starting frames (REFERENCE_2_VIDEO), text-to-video, first+last frame transitions. UGC stills → video path. | Endpoint: `POST /api/v1/veo/generate`. Mutually exclusive `generationType` modes; `REFERENCE_2_VIDEO` only supports `veo3_fast`. |
-| **Sora 2** | Video (up to 20s) | `sora-2-text-to-video` | Long-duration text-to-video. | Endpoint: `POST /api/v1/jobs/createTask`. Duration auto-selected from script word count. |
-| **Sora 2 Pro** | Video | `sora-2-pro-text-to-video` | Premium-tier Sora 2 for hero pieces. | Same endpoint. |
-| **Sora 2 image-to-video** | Video | `sora-2-image-to-video` | Start a Sora video from a public image URL. | Same endpoint. |
-| **Kling 3.0** | Video | per marketplace (`kling-3`, `kling-3-pro`, etc.) | B-roll, cinematic clips. | Confirm string on [kie.ai/market](https://kie.ai/market) for your account. |
-| **Nano Banana 2** (default) | Image | `nano-banana-2` | UGC stills, character sheets, product shots, influencer recreation, image-ad creatives. | Endpoint: `POST /api/v1/jobs/createTask`. |
-| **Nano Banana Pro** | Image | `nano-banana-pro` | Premium image quality (Gemini 3 Pro Image). Locks character identity tighter across batches. | Same endpoint. |
-| **Nano Banana Edit** | Image | `nano-banana-edit` | Inpaint / edit an existing image. | Same endpoint. |
-| **Nano Banana** (legacy) | Image | `nano-banana` | Original variant, rarely needed. | Same endpoint. |
-| **ChatGPT Image 2** | Image | (no model param — endpoint selects model) | Typography-heavy / UI-mimicry static ad creatives. Used by `chatgpt-image-ad` skill + the Pixar / Claymation storyboard pipelines. | **Dedicated endpoint:** `POST /api/v1/gpt4o-image/generate`. Sizes: `1:1`, `3:2`, `2:3`. Up to 5 reference URLs in `filesUrl[]`. |
+| **Seedance 2.0** | Video (4–15s) | `bytedance/seedance-2` | El modelo estrella. UGC, revelación premium, producto héroe, lookbook, demo de funcionalidades. Audio nativo. | Trae 5 fórmulas de prompt. Endpoint: `POST /api/v1/jobs/createTask`. |
+| **Seedance 2.0 Fast** | Video | `bytedance/seedance-2-fast` | Seedance más barato y rápido, para iterar. | Mismo endpoint. |
+| **Seedance 1.5 Pro** | Video | `bytedance/seedance-1.5-pro` | Seedance Pro legacy. | Mismo endpoint. |
+| **Veo 3.1** | Video (~8s) | `veo3_fast` (por defecto), `veo3`, `veo3_lite` | Animar frames iniciales (REFERENCE_2_VIDEO), texto a video, transiciones entre primer y último frame. El camino de imagen UGC → video. | Endpoint: `POST /api/v1/veo/generate`. Los modos de `generationType` son mutuamente excluyentes; `REFERENCE_2_VIDEO` solo funciona con `veo3_fast`. |
+| **Sora 2** | Video (hasta 20s) | `sora-2-text-to-video` | Texto a video de larga duración. | Endpoint: `POST /api/v1/jobs/createTask`. La duración se elige según las palabras del guion. |
+| **Sora 2 Pro** | Video | `sora-2-pro-text-to-video` | Sora 2 tier premium para piezas principales. | Mismo endpoint. |
+| **Sora 2 imagen a video** | Video | `sora-2-image-to-video` | Arrancar un video de Sora desde una URL pública de imagen. | Mismo endpoint. |
+| **Kling 3.0** | Video | según marketplace (`kling-3`, `kling-3-pro`, etc.) | B-roll, clips cinematográficos. | Confirmá el string en [kie.ai/market](https://kie.ai/market) para tu cuenta. |
+| **Nano Banana 2** (por defecto) | Imagen | `nano-banana-2` | Imágenes UGC, character sheets, fotos de producto, recreación de influencers, creativos de anuncios. | Endpoint: `POST /api/v1/jobs/createTask`. |
+| **Nano Banana Pro** | Imagen | `nano-banana-pro` | Calidad premium (Gemini 3 Pro Image). Mantiene la identidad del personaje más firme entre lotes. | Mismo endpoint. |
+| **Nano Banana Edit** | Imagen | `nano-banana-edit` | Retocar / editar una imagen existente. | Mismo endpoint. |
+| **Nano Banana** (legacy) | Imagen | `nano-banana` | Variante original, rara vez necesaria. | Mismo endpoint. |
+| **ChatGPT Image 2** | Imagen | (sin parámetro de modelo — lo elige el endpoint) | Creativos estáticos cargados de tipografía / imitación de interfaces. Lo usan la skill `chatgpt-image-ad` y los pipelines de storyboard de Pixar y claymation. | **Endpoint dedicado:** `POST /api/v1/gpt4o-image/generate`. Tamaños: `1:1`, `3:2`, `2:3`. Hasta 5 URLs de referencia en `filesUrl[]`. |
 
-Cost is presented as an **estimate** before every generation; the agent reads `logs/kie-api.jsonl` for historical credit values matching your config. **Always verify exact `model` strings on the marketplace page for your account** — KIE adds and renames models as vendors update. Confirmed strings get written into `MASTER_CONTEXT.md` automatically.
+El costo se presenta siempre como **estimación** antes de cada generación; el agente lee `logs/kie-api.jsonl` para sacar los valores históricos que coinciden con tu configuración. **Verificá siempre los strings exactos de `model` en la página del marketplace de tu cuenta** — KIE agrega y renombra modelos a medida que los proveedores actualizan. Los strings confirmados se escriben solos en `MASTER_CONTEXT.md`.
 
-## Reference images
+## Imágenes de referencia
 
-Drop images into the `references/` folder and the agent will use them automatically (once you've set up hosting):
+Dejá tus imágenes en la carpeta `references/` y el agente las va a usar automáticamente (una vez que tengas el hosting configurado):
 
-- **`references/influencers/`** — Photos of people to recreate as AI-generated content
-- **`references/products/`** — Product photos for showcase videos and hero images
-- **`references/aesthetics/`** — Style references organized by vibe (`ugc-selfie/`, `cinematic/`, etc.)
+- **`references/influencers/`** — Fotos de personas para recrear como contenido generado con IA
+- **`references/products/`** — Fotos de producto para videos de showcase e imágenes principales
+- **`references/aesthetics/`** — Referencias de estilo organizadas por vibe (`ugc-selfie/`, `cinematic/`, etc.)
 
-Images stay local — the folder contents are gitignored. The agent auto-upscales any reference below 1024px (the API's min-size floor) using Lanczos before uploading to your host.
+Las imágenes quedan en tu máquina — el contenido de la carpeta está en gitignore. El agente escala automáticamente con Lanczos cualquier referencia por debajo de 1024px (el mínimo que pide la API) antes de subirla a tu host.
 
-## Editing skills
+## Editar las skills
 
-Each skill's canonical source lives in `skills/<name>/`. After editing any file there, run:
+La fuente canónica de cada skill vive en `skills/<nombre>/`. Después de editar cualquier archivo ahí, corré:
 
 ```bash
 ./scripts/sync-skill.sh
 ```
 
-This copies your changes to `.claude/skills/` and `.cursor/skills/` (which are gitignored — they're generated copies). The `SessionStart` hook in `.claude/settings.json` also runs this automatically when Claude Code opens.
+Esto copia tus cambios a `.claude/skills/` y `.cursor/skills/` (que están en gitignore — son copias generadas). El hook `SessionStart` de `.claude/settings.json` también lo corre solo cuando abrís Claude Code.
 
-## Staying current
+## Mantenerte al día
 
-This repo updates regularly — new templates land in the prompt library, new workflows get added, bugs get fixed. To stay in sync with upstream:
+Este repo se actualiza seguido — entran plantillas nuevas a la librería de prompts, se agregan flujos y se corrigen errores. Para mantenerte sincronizado:
 
-- **At every Claude Code session start**, the `check-context.sh` hook automatically runs `git fetch origin` (with a 10s timeout, never blocks). If your local clone is behind, the SessionStart banner will list the pending commits and tell you to run `git pull`. No surprise pulls — it just notifies.
-- **To pull updates manually:** `git pull origin main` from the repo root. If you've made local changes to tracked files, stash them first: `git stash && git pull && git stash pop`.
-- **If you've forked the repo on GitHub:** click the "Sync fork" button on your fork's page to bring it in line with this upstream, then `git pull` locally.
-- **Customizations:** your `.env`, `MASTER_CONTEXT.md`, `references/`, `outputs/`, and `logs/` are all gitignored — they survive every update. If you customize a core skill file (e.g. tune a SKILL.md for your brand), expect potential merge conflicts on `git pull` — keep custom versions under a non-tracked path (e.g. `local-skills/`) if you don't want them affected by upstream updates.
+- **Al inicio de cada sesión de Claude Code**, el hook `check-context.sh` corre `git fetch origin` automáticamente (con timeout de 10 segundos, nunca te bloquea). Si tu copia local está atrasada, el banner te lista los commits pendientes y te dice que corras `git pull`. No hay pulls sorpresa — solo te avisa.
+- **Para traer actualizaciones a mano:** `git pull origin main` desde la raíz del repo. Si hiciste cambios locales en archivos versionados, guardalos primero: `git stash && git pull && git stash pop`.
+- **Si hiciste un fork en GitHub:** tocá el botón "Sync fork" en la página de tu fork para alinearlo con este repo, y después hacé `git pull` en tu máquina.
+- **Tus personalizaciones:** `.env`, `MASTER_CONTEXT.md`, `references/`, `outputs/` y `logs/` están todos en gitignore — sobreviven a cada actualización. Si personalizás un archivo de una skill (por ejemplo, ajustás un SKILL.md para tu marca), esperá posibles conflictos al hacer `git pull` — si no querés que las actualizaciones los toquen, guardá tus versiones en una ruta no versionada (por ejemplo `local-skills/`).
 
-## Security
+## Seguridad
 
-- `.env` is gitignored — never committed
-- `MASTER_CONTEXT.md` is gitignored — contains your cost tables, hosting paths, and confirmed model strings
-- `logs/kie-api.jsonl` IS committed (historical cost data is valuable), but never logs keys, headers, or full prompt text — see `logs/README.md`
-- Never paste API keys in GitHub issues or public chats
-- Every Meta ad created via `meta-ad-builder` is created **PAUSED** — nothing goes live without you launching it manually in Ads Manager
+- `.env` está en gitignore — nunca se sube
+- `MASTER_CONTEXT.md` está en gitignore — contiene tus tablas de costos, rutas de hosting y strings de modelo confirmados
+- `logs/kie-api.jsonl` SÍ se sube (el historial de costos vale la pena), pero nunca loguea claves, headers ni el texto completo de los prompts — ver `logs/README.md`
+- Nunca pegues API keys en issues de GitHub ni en chats públicos
+- Todo anuncio creado por `meta-ad-builder` se crea **PAUSADO** — nada sale al aire sin que vos lo actives a mano en el Administrador de Anuncios
 
-## Vendor prompting guides
+## Guías de prompting de cada proveedor
 
-| Model | Guide |
+| Modelo | Guía |
 |-------|--------|
-| Seedance 2.0 | Aligned to ByteDance's published Seedance prompting platform (the skill summarizes this in `skills/kie-external-api/prompting/prompt-library/seedance-2.md`) |
+| Seedance 2.0 | Alineado a la guía oficial de prompting de Seedance de ByteDance (la skill lo resume en `skills/kie-external-api/prompting/prompt-library/seedance-2.md`) |
 | Veo 3.1 | [Google Cloud — Veo 3.1](https://cloud.google.com/blog/products/ai-machine-learning/ultimate-prompting-guide-for-veo-3-1) |
-| Sora 2 | [OpenAI — Sora 2 prompting guide](https://developers.openai.com/cookbook/examples/sora/sora2_prompting_guide) |
-| Kling 3.0 | [Kling — user guide](https://kling.ai/quickstart/klingai-video-3-model-user-guide) |
+| Sora 2 | [OpenAI — guía de prompting de Sora 2](https://developers.openai.com/cookbook/examples/sora/sora2_prompting_guide) |
+| Kling 3.0 | [Kling — guía de uso](https://kling.ai/quickstart/klingai-video-3-model-user-guide) |
 | Nano Banana | [Google Cloud — Nano Banana](https://cloud.google.com/blog/products/ai-machine-learning/ultimate-prompting-guide-for-nano-banana) |
-| ChatGPT Image 2 | OpenAI image-generation guidance (summarized in `shared/skills/chatgpt-image-ad/prompting/guide.md` with model-specific strengths and limits) |
+| ChatGPT Image 2 | Guía de generación de imágenes de OpenAI (resumida en `shared/skills/chatgpt-image-ad/prompting/guide.md`, con las fortalezas y los límites del modelo) |
 
-## API docs
+## Documentación de la API
 
-- **KIE docs:** [docs.kie.ai](https://docs.kie.ai)
-- **Model marketplace:** [kie.ai/market](https://kie.ai/market) — verify current `model` strings
-- **Pricing:** [kie.ai/pricing](https://kie.ai/pricing)
-- **Task logs UI:** [kie.ai/logs](https://kie.ai/logs) — server-side task history, status, credit consumption
+- **Docs de KIE:** [docs.kie.ai](https://docs.kie.ai)
+- **Marketplace de modelos:** [kie.ai/market](https://kie.ai/market) — verificá los strings de `model` actuales
+- **Precios:** [kie.ai/pricing](https://kie.ai/pricing)
+- **Historial de tareas:** [kie.ai/logs](https://kie.ai/logs) — historial del lado del servidor, estado y consumo de créditos
 
 ## Comunidad · MÁQUINA IA 🚀
 
@@ -399,6 +401,6 @@ Este repo es una pieza del **Sistema 1 — el Marketero IA**: la parte que produ
 
 Si te trabás con este repo, ahí es donde se resuelve.
 
-## Other AI assistants (Manus, Copilot, etc.)
+## Otros asistentes de IA (Manus, Copilot, etc.)
 
-Point your assistant at [AGENTS.md](AGENTS.md) and `MASTER_CONTEXT.md` + the skill paths in `skills/` and `shared/skills/`. See [AGENTS.md](AGENTS.md) for details.
+Apuntá tu asistente a [AGENTS.md](AGENTS.md) y a `MASTER_CONTEXT.md`, más las rutas de skills en `skills/` y `shared/skills/`. Los detalles están en [AGENTS.md](AGENTS.md).
